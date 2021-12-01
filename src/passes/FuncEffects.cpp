@@ -33,8 +33,6 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
     auto& funcEffects = runner->options.funcEffects;
     funcEffects.clear();
 
-    using Info = std::shared_ptr<EffectAnalyzer>;
-
     // Create a single Info to represent "anything" - any effect might happen,
     // and we give up on trying to analyze things. To represent that, scan a
     // fake call (running the actual effect analyzer code on a call is important
@@ -44,35 +42,50 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
     // intentional - we will use this as the effects of a call, which indeed
     // cannot have such effects.
     Call fakeCall(module->allocator);
-    Info anything = std::make_shared<EffectAnalyzer>(runner->options, *module, &fakeCall);
+    std::shared_ptr<EffectAnalyzer> anything = std::make_shared<EffectAnalyzer>(runner->options, *module, &fakeCall);
 
-    ModuleUtils::ParallelFunctionAnalysis<Info> analysis(*module, [&](Function* func, Info& info) {
-      if (func->imported()) {
-        // Imported functions can do anything.
-        info = anything;
-      } else {
-        // For defined functions, compute the effects in their body.
-        info = std::make_shared<EffectAnalyzer>(runner->options, *module, func->body);
+    struct Info
+      : public ModuleUtils::CallGraphPropertyAnalysis<Info>::FunctionInfo {
+      std::shared_ptr<EffectAnalyzer> effects;
+    };
+    ModuleUtils::CallGraphPropertyAnalysis<Info> analyzer(
+      *module, [&](Function* func, Info& info) {
+        if (func->imported()) {
+          // Imported functions can do anything.
+          info.effects = anything;
+        } else {
+          // For defined functions, compute the effects in their body.
+          info.effects = std::make_shared<EffectAnalyzer>(runner->options, *module, func->body);
+          auto& effects = *info.effects;
 
-        // Discard any effects on locals, since those are not noticeable in the
-        // caller.
-        info->localsWritten.clear();
-        info->localsRead.clear();
+          // Discard any effects on locals, since those are not noticeable in the
+          // caller.
+          effects.localsWritten.clear();
+          effects.localsRead.clear();
 
-        // Discard branching out of an expression or a return - we are returning
-        // back out to the caller anyhow. (If this is a return_call then we do
-        // need this property, but it will be added when computing effects:
-        // visitCall() in effects.h will add our effects as computed here, and
-        // then also take into account return_call effects as well.)
-        info->branchesOut = false;
+          // Discard branching out of an expression or a return - we are returning
+          // back out to the caller anyhow. (If this is a return_call then we do
+          // need this property, but it will be added when computing effects:
+          // visitCall() in effects.h will add our effects as computed here, and
+          // then also take into account return_call effects as well.)
+          effects.branchesOut = false;
 
-        // As we have parsed an entire function, there should be no structural
-        // info about being inside a try-catch.
-        assert(!info->tryDepth);
-        assert(!info->catchDepth);
-        assert(!info->danglingPop);
-      }
-    });
+          // As we have parsed an entire function, there should be no structural
+          // info about being inside a try-catch.
+          assert(!effects.tryDepth);
+          assert(!effects.catchDepth);
+          assert(!effects.danglingPop);
+        }
+      });
+
+#if 0
+    // Assume a non-direct call might throw.
+    analyzer.propagateBack(
+      [](const Info& info) { return info.canThrow; },
+      [](const Info& info) { return true; },
+      [](Info& info, Function* reason) { info.canThrow = true; },
+      analyzer.NonDirectCallsHaveProperty);
+#endif
 
     // TODO: Propagate effects through direct calls. Without that we only look
     //       one call deep, basically.
@@ -80,11 +93,12 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
     //       (to indicate "we've failed to learn anything here").
 
     // TODO: share the Info object between functions where possible to save
-    //       memory, like we do with |anything| already.
+    //       memory, like we do with |anything| already. E.g. if a function's
+    //       final result is similar to a function it calls (common case), share
 
     // Copy the info to the final location.
-    for (auto& [func, info] : analysis.map) {
-      funcEffects[func->name] = info;
+    for (auto& [func, info] : analyzer.map) {
+      funcEffects[func->name] = info.effects;
     }
   }
 };
