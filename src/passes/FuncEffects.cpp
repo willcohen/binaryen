@@ -102,6 +102,12 @@ struct GenerateFuncEffects
         info.effects = anything;
       });
 
+    // TODO Recursion is an effect... of sorts. We can run out of call stack
+    //      and error. So we must detect that and mark functions as "may recurse".
+
+    // TODO: increase the Cost of calls? Now without side effects we may be
+    //       tempted to selectify etc. and do more calls as a result.
+
     // TODO: share the Info object between functions where possible to save
     //       memory, like we do with |anything| already. E.g. if a function's
     //       final result is similar to a function it calls (common case), share
