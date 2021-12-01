@@ -97,4 +97,51 @@
                    ;; perhaps we could in the future)
     (local.get $x)
   )
+
+  ;; CHECK:      (func $call-call-set-glob (result i32)
+  ;; CHECK-NEXT:  (local $x i32)
+  ;; CHECK-NEXT:  (local.set $x
+  ;; CHECK-NEXT:   (global.get $glob)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (call $call-set-glob)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (local.get $x)
+  ;; CHECK-NEXT: )
+  (func $call-call-set-glob (result i32)
+    (local $x i32)
+    (local.set $x
+      (global.get $glob)
+    )
+    (drop
+      (call $call-set-glob) ;; call a function that calls a function that sets
+                            ;; the global. we should see that such a nested call
+                            ;; prevents optimization.
+    )
+    (local.get $x)
+  )
+
+  ;; CHECK:      (func $call-call-no-glob (result i32)
+  ;; CHECK-NEXT:  (local $x i32)
+  ;; CHECK-NEXT:  (local.set $x
+  ;; CHECK-NEXT:   (global.get $glob)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (call $call-no-glob)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (local.get $x)
+  ;; CHECK-NEXT: )
+  (func $call-call-no-glob (result i32)
+    (local $x i32)
+    (local.set $x
+      (global.get $glob)
+    )
+    (drop
+      (call $call-no-glob) ;; call a function that calls a function that has no
+                           ;; effect on the global. for now we can't optimize this
+                           ;; but we should propagate effects through direct calls
+                           ;; and do this TODO
+    )
+    (local.get $x)
+  )
 )
