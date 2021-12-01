@@ -30,6 +30,7 @@ set(passes_SOURCES
   ExtractFunction.cpp
   Flatten.cpp
   FuncCastEmulation.cpp
+  FuncEffects.cpp
   GenerateDynCalls.cpp
   GlobalRefining.cpp
   GlobalTypeOptimization.cpp

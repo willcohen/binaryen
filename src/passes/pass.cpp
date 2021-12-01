@@ -128,6 +128,8 @@ void PassRegistry::registerPasses() {
   registerPass(
     "directize", "turns indirect calls into direct ones", createDirectizePass);
   registerPass(
+    "discard-func-effects", "discard function effects", createDiscardFuncEffectsPass);
+  registerPass(
     "dfo", "optimizes using the DataFlow SSA IR", createDataFlowOptsPass);
   registerPass("dwarfdump",
                "dump DWARF debug info sections from the read binary",
@@ -158,6 +160,8 @@ void PassRegistry::registerPasses() {
   registerPass("generate-dyncalls",
                "generate dynCall fuctions used by emscripten ABI",
                createGenerateDynCallsPass);
+  registerPass(
+    "generate-func-effects", "generate function effects", createGenerateFuncEffectsPass);
   registerPass(
     "generate-i64-dyncalls",
     "generate dynCall functions used by emscripten ABI, but only for "
@@ -447,6 +451,13 @@ void PassRunner::addDefaultFunctionOptimizationPasses() {
   // when DWARF is relevant we run fewer optimizations.
   // FIXME: support DWARF in all of them.
 
+  // Explain why this is ok to not update in the middle etc.
+  bool generateFuncEffects = !isNested() && (options.optimizeLevel >= 3 || options.shrinkLevel);
+
+  if (generateFuncEffects) {
+    addIfNoDWARFIssues("generate-func-effects");
+  }
+
   // Untangling to semi-ssa form is helpful (but best to ignore merges
   // so as to not introduce new copies).
   if (options.optimizeLevel >= 3 || options.shrinkLevel >= 1) {
@@ -539,6 +550,10 @@ void PassRunner::addDefaultFunctionOptimizationPasses() {
       "rse"); // after all coalesce-locals, and before a final vacuum
   }
   addIfNoDWARFIssues("vacuum"); // just to be safe
+
+  if (generateFuncEffects) {
+    addIfNoDWARFIssues("discard-func-effects");
+  }
 }
 
 void PassRunner::addDefaultGlobalOptimizationPrePasses() {

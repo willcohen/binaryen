@@ -95,6 +95,12 @@ struct InliningOptions {
   Index partialInliningIfs = 0;
 };
 
+// Forward declaration for funcEffects below.
+class EffectAnalyzer;
+
+// Information that affects how passes are run. This is mainly in the form of
+// options and flags passed by the user, but is also a mechanism to pass
+// optional info between passes.
 struct PassOptions {
   // Run passes in debug mode, doing extra validation and timing checks.
   bool debug = false;
@@ -165,6 +171,18 @@ struct PassOptions {
   // Arbitrary string arguments from the commandline, which we forward to
   // passes.
   std::map<std::string, std::string> arguments;
+
+  // Effect info computed for functions. One pass can generate this and then
+  // other passes later can benefit from it. It is up to the sequence of passes
+  // to update or discard this when necessary - in particular, when new effects
+  // are added to a function this must be changed or we may optimize
+  // incorrectly.
+  //
+  // Shared pointers to the effect info are used as it is common for functions
+  // to have identical effect info. In addition, a shared_ptr here lets us use a
+  // forward declaration of EffectAnalyzer so we don't need to include that
+  // header in this one (and this one is much more generic/commonly used).
+  std::unordered_map<Name, std::shared_ptr<EffectAnalyzer>> funcEffects;
 
   void setDefaultOptimizationOptions() {
     // -Os is our default
