@@ -61,6 +61,9 @@ struct GenerateFuncEffects
             runner->options, *module, func->body);
           auto& effects = *info.effects;
 
+          // Discard calls, as we will propagate their effects below.
+          effects.calls = false;
+
           // Discard any effects on locals, since those are not noticeable in
           // the caller.
           effects.localsWritten.clear();

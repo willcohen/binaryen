@@ -166,13 +166,11 @@
 
   ;; CHECK:      (func $call-call-no-glob (result i32)
   ;; CHECK-NEXT:  (local $x i32)
-  ;; CHECK-NEXT:  (local.set $x
-  ;; CHECK-NEXT:   (global.get $glob)
-  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (nop)
   ;; CHECK-NEXT:  (drop
   ;; CHECK-NEXT:   (call $call-no-glob)
   ;; CHECK-NEXT:  )
-  ;; CHECK-NEXT:  (local.get $x)
+  ;; CHECK-NEXT:  (global.get $glob)
   ;; CHECK-NEXT: )
   (func $call-call-no-glob (result i32)
     (local $x i32)
@@ -181,9 +179,9 @@
     )
     (drop
       (call $call-no-glob) ;; call a function that calls a function that has no
-                           ;; effect on the global. for now we can't optimize this
-                           ;; but we should propagate effects through direct calls
-                           ;; and do this TODO
+                           ;; effect on the global. we can optimize this because
+                           ;; we propagate the effects of direct calls through
+                           ;; multiple calls.
     )
     (local.get $x)
   )
