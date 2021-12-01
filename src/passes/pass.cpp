@@ -452,7 +452,8 @@ void PassRunner::addDefaultFunctionOptimizationPasses() {
   // FIXME: support DWARF in all of them.
 
   // Explain why this is ok to not update in the middle etc.
-  bool generateFuncEffects = !isNested() && (options.optimizeLevel >= 3 || options.shrinkLevel);
+  // and why not nested
+  bool generateFuncEffects = !isNested && (options.optimizeLevel >= 3 || options.shrinkLevel);
 
   if (generateFuncEffects) {
     addIfNoDWARFIssues("generate-func-effects");

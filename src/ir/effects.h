@@ -45,7 +45,7 @@ public:
   bool debugInfo;
   Module& module;
   FeatureSet features;
-  std::unordered_map<Name, std::shared_ptr<EffectAnalyzer>>& funcEffects;
+  const std::unordered_map<Name, std::shared_ptr<EffectAnalyzer>>& funcEffects;
 
 
   // Walk an expression and all its children.
