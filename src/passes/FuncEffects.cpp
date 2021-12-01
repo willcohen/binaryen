@@ -60,7 +60,10 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
         info->localsRead.clear();
 
         // Discard branching out of an expression or a return - we are returning
-        // back out to the caller anyhow.
+        // back out to the caller anyhow. (If this is a return_call then we do
+        // need this property, but it will be added when computing effects:
+        // visitCall() in effects.h will add our effects as computed here, and
+        // then also take into account return_call effects as well.)
         info->branchesOut = false;
 
         // As we have parsed an entire function, there should be no structural

@@ -4,6 +4,9 @@
 (module
   (memory 1 1)
 
+  ;; CHECK:      (import "env" "import" (func $import))
+  (import "env" "import" (func $import))
+
   ;; CHECK:      (global $glob (mut i32) (i32.const 0))
   (global $glob (mut i32) (i32.const 0))
 
@@ -73,6 +76,25 @@
       (global.get $glob)
     )
     (call $no-glob) ;; this is ok to optimize over
+    (local.get $x)
+  )
+
+  ;; CHECK:      (func $call-import (result i32)
+  ;; CHECK-NEXT:  (local $x i32)
+  ;; CHECK-NEXT:  (local.set $x
+  ;; CHECK-NEXT:   (global.get $glob)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (call $import)
+  ;; CHECK-NEXT:  (local.get $x)
+  ;; CHECK-NEXT: )
+  (func $call-import (result i32)
+    (local $x i32)
+    (local.set $x
+      (global.get $glob)
+    )
+    (call $import) ;; imports have arbitrary effects, so we cannot optimize here
+                   ;; (but in theory as the global is not exported or imported,
+                   ;; perhaps we could in the future)
     (local.get $x)
   )
 )
