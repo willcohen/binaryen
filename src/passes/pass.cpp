@@ -451,11 +451,25 @@ void PassRunner::addDefaultFunctionOptimizationPasses() {
   // when DWARF is relevant we run fewer optimizations.
   // FIXME: support DWARF in all of them.
 
-  // Explain why this is ok to not update in the middle etc.
-  // and why not nested
-  bool generateFuncEffects = !isNested && (options.optimizeLevel >= 3 || options.shrinkLevel);
+  // When working hard enough, use function effects to optimize, that is,
+  // compute the effects of functions so that the effects of the called code is
+  // not totally opaque. We generate the effects at the beginning of the
+  // pipeline and discard them at the end. This means that we do not refine the
+  // effects as things change, that is, when we remove an effect we do not
+  // notice that - we would need to do another cycle of optimizations to do so.
+  // This is reasonable since computing those effects is not cheap, and removing
+  // effects is somewhat uncommon. Note that we may optimize too
+  // pessimistically but we will still be correct, as we'll just have too many
+  // effects - here we strongly depend on the fact that none of the passes here
+  // *add* any effects, they only remove them.
+  //
+  // We don't do this if we are nested: a nested runner that is invoked anywhere
+  // here (or elsewhere) should not compute and then discard function effects,
+  // as that could interfere with the normal operation (say, discarding them in
+  // the middle of the pipeline here would be bad).
+  bool useFuncEffects = (options.optimizeLevel >= 3 || options.shrinkLevel) && !isNested;
 
-  if (generateFuncEffects) {
+  if (useFuncEffects) {
     addIfNoDWARFIssues("generate-func-effects");
   }
 
@@ -552,7 +566,7 @@ void PassRunner::addDefaultFunctionOptimizationPasses() {
   }
   addIfNoDWARFIssues("vacuum"); // just to be safe
 
-  if (generateFuncEffects) {
+  if (useFuncEffects) {
     addIfNoDWARFIssues("discard-func-effects");
   }
 }

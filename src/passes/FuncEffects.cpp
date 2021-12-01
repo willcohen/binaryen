@@ -39,7 +39,7 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
     Info anything = std::make_shared<EffectAnalyzer>(runner->options, *module);
     anything->calls = true;
 
-    ParallelFunctionAnalysis<Info> analysis(*module, [&](Function* func, Info& info) {
+    ModuleUtils::ParallelFunctionAnalysis<Info> analysis(*module, [&](Function* func, Info& info) {
       if (func->imported()) {
         // Imported functions can do anything.
         info = anything;
