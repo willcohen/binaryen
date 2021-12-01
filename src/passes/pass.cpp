@@ -127,8 +127,9 @@ void PassRegistry::registerPasses() {
                createDeNaNPass);
   registerPass(
     "directize", "turns indirect calls into direct ones", createDirectizePass);
-  registerPass(
-    "discard-func-effects", "discard function effects", createDiscardFuncEffectsPass);
+  registerPass("discard-func-effects",
+               "discard function effects",
+               createDiscardFuncEffectsPass);
   registerPass(
     "dfo", "optimizes using the DataFlow SSA IR", createDataFlowOptsPass);
   registerPass("dwarfdump",
@@ -160,8 +161,9 @@ void PassRegistry::registerPasses() {
   registerPass("generate-dyncalls",
                "generate dynCall fuctions used by emscripten ABI",
                createGenerateDynCallsPass);
-  registerPass(
-    "generate-func-effects", "generate function effects", createGenerateFuncEffectsPass);
+  registerPass("generate-func-effects",
+               "generate function effects",
+               createGenerateFuncEffectsPass);
   registerPass(
     "generate-i64-dyncalls",
     "generate dynCall functions used by emscripten ABI, but only for "
@@ -467,7 +469,8 @@ void PassRunner::addDefaultFunctionOptimizationPasses() {
   // here (or elsewhere) should not compute and then discard function effects,
   // as that could interfere with the normal operation (say, discarding them in
   // the middle of the pipeline here would be bad).
-  bool useFuncEffects = (options.optimizeLevel >= 3 || options.shrinkLevel) && !isNested;
+  bool useFuncEffects =
+    (options.optimizeLevel >= 3 || options.shrinkLevel) && !isNested;
 
   if (useFuncEffects) {
     addIfNoDWARFIssues("generate-func-effects");

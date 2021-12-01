@@ -33,8 +33,7 @@ public:
     : ignoreImplicitTraps(passOptions.ignoreImplicitTraps),
       trapsNeverHappen(passOptions.trapsNeverHappen),
       debugInfo(passOptions.debugInfo), module(module),
-      features(module.features),
-      funcEffects(passOptions.funcEffects) {
+      features(module.features), funcEffects(passOptions.funcEffects) {
     if (ast) {
       walk(ast);
     }
@@ -46,7 +45,6 @@ public:
   Module& module;
   FeatureSet features;
   const std::unordered_map<Name, std::shared_ptr<EffectAnalyzer>>& funcEffects;
-
 
   // Walk an expression and all its children.
   void walk(Expression* ast) {
@@ -313,29 +311,23 @@ public:
   }
 
   bool operator!=(const EffectAnalyzer& other) {
-    return branchesOut != other.branchesOut ||
-            calls != other.calls ||
-            readsMemory != other.readsMemory ||
-            writesMemory != other.writesMemory ||
-            readsTable != other.readsTable ||
-            writesTable != other.writesTable ||
-            readsMutableStruct != other.readsMutableStruct ||
-            readsImmutableStruct != other.readsImmutableStruct ||
-            writesStruct != other.writesStruct ||
-            readsArray != other.readsArray ||
-            writesArray != other.writesArray ||
-            trap != other.trap ||
-            implicitTrap != other.implicitTrap ||
-            trapsNeverHappen != other.trapsNeverHappen ||
-            isAtomic != other.isAtomic ||
-            throws != other.throws ||
-            danglingPop != other.danglingPop ||
-            localsRead != other.localsRead ||
-            localsWritten != other.localsWritten ||
-            mutableGlobalsRead != other.mutableGlobalsRead ||
-            immutableGlobalsRead != other.immutableGlobalsRead ||
-            globalsWritten != other.globalsWritten ||
-            breakTargets != other.breakTargets;
+    return branchesOut != other.branchesOut || calls != other.calls ||
+           readsMemory != other.readsMemory ||
+           writesMemory != other.writesMemory ||
+           readsTable != other.readsTable || writesTable != other.writesTable ||
+           readsMutableStruct != other.readsMutableStruct ||
+           readsImmutableStruct != other.readsImmutableStruct ||
+           writesStruct != other.writesStruct ||
+           readsArray != other.readsArray || writesArray != other.writesArray ||
+           trap != other.trap || implicitTrap != other.implicitTrap ||
+           trapsNeverHappen != other.trapsNeverHappen ||
+           isAtomic != other.isAtomic || throws != other.throws ||
+           danglingPop != other.danglingPop || localsRead != other.localsRead ||
+           localsWritten != other.localsWritten ||
+           mutableGlobalsRead != other.mutableGlobalsRead ||
+           immutableGlobalsRead != other.immutableGlobalsRead ||
+           globalsWritten != other.globalsWritten ||
+           breakTargets != other.breakTargets;
   }
 
   // the checks above happen after the node's children were processed, in the
@@ -456,7 +448,7 @@ private:
         parent.mergeIn(targetFuncEffects);
       } else {
         parent.calls = true;
-  
+
         // When EH is enabled, any call can throw.
         if (parent.features.hasExceptionHandling() && parent.tryDepth == 0) {
           parent.throws = true;

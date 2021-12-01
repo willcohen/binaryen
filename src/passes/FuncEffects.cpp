@@ -26,7 +26,8 @@ namespace wasm {
 
 // Generate Stack IR from Binaryen IR
 
-struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> {
+struct GenerateFuncEffects
+  : public WalkerPass<PostWalker<GenerateFuncEffects>> {
   virtual void run(PassRunner* runner, Module* module) {
     // First, clear any previous function effects. We don't want to notice them
     // when we compute effects here.
@@ -42,7 +43,8 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
     // intentional - we will use this as the effects of a call, which indeed
     // cannot have such effects.
     Call fakeCall(module->allocator);
-    std::shared_ptr<EffectAnalyzer> anything = std::make_shared<EffectAnalyzer>(runner->options, *module, &fakeCall);
+    std::shared_ptr<EffectAnalyzer> anything =
+      std::make_shared<EffectAnalyzer>(runner->options, *module, &fakeCall);
 
     struct Info
       : public ModuleUtils::CallGraphPropertyAnalysis<Info>::FunctionInfo {
@@ -55,19 +57,20 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
           info.effects = anything;
         } else {
           // For defined functions, compute the effects in their body.
-          info.effects = std::make_shared<EffectAnalyzer>(runner->options, *module, func->body);
+          info.effects = std::make_shared<EffectAnalyzer>(
+            runner->options, *module, func->body);
           auto& effects = *info.effects;
 
-          // Discard any effects on locals, since those are not noticeable in the
-          // caller.
+          // Discard any effects on locals, since those are not noticeable in
+          // the caller.
           effects.localsWritten.clear();
           effects.localsRead.clear();
 
-          // Discard branching out of an expression or a return - we are returning
-          // back out to the caller anyhow. (If this is a return_call then we do
-          // need this property, but it will be added when computing effects:
-          // visitCall() in effects.h will add our effects as computed here, and
-          // then also take into account return_call effects as well.)
+          // Discard branching out of an expression or a return - we are
+          // returning back out to the caller anyhow. (If this is a return_call
+          // then we do need this property, but it will be added when computing
+          // effects: visitCall() in effects.h will add our effects as computed
+          // here, and then also take into account return_call effects as well.)
           effects.branchesOut = false;
 
           // As we have parsed an entire function, there should be no structural
