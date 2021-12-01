@@ -33,7 +33,8 @@ public:
     : ignoreImplicitTraps(passOptions.ignoreImplicitTraps),
       trapsNeverHappen(passOptions.trapsNeverHappen),
       debugInfo(passOptions.debugInfo), module(module),
-      features(module.features) {
+      features(module.features),
+      funcEffects(passOptions.funcEffects) {
     if (ast) {
       walk(ast);
     }
@@ -44,6 +45,8 @@ public:
   bool debugInfo;
   Module& module;
   FeatureSet features;
+  std::unordered_map<Name, std::shared_ptr<EffectAnalyzer>>& funcEffects;
+
 
   // Walk an expression and all its children.
   void walk(Expression* ast) {
@@ -420,11 +423,20 @@ private:
         return;
       }
 
-      parent.calls = true;
-      // When EH is enabled, any call can throw.
-      if (parent.features.hasExceptionHandling() && parent.tryDepth == 0) {
-        parent.throws = true;
+      // Look for effect info on the called function.
+      auto iter = parent.funcEffects.find(curr->target);
+      if (iter != parent.funcEffects.end()) {
+        auto& targetFuncEffects = *iter->second;
+        parent.mergeIn(targetFuncEffects);
+      } else {
+        parent.calls = true;
+  
+        // When EH is enabled, any call can throw.
+        if (parent.features.hasExceptionHandling() && parent.tryDepth == 0) {
+          parent.throws = true;
+        }
       }
+
       if (curr->isReturn) {
         parent.branchesOut = true;
       }
