@@ -185,4 +185,26 @@
     )
     (local.get $x)
   )
+
+  ;; CHECK:      (func $call-call-import (result i32)
+  ;; CHECK-NEXT:  (local $x i32)
+  ;; CHECK-NEXT:  (local.set $x
+  ;; CHECK-NEXT:   (global.get $glob)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (drop
+  ;; CHECK-NEXT:   (call $call-import)
+  ;; CHECK-NEXT:  )
+  ;; CHECK-NEXT:  (local.get $x)
+  ;; CHECK-NEXT: )
+  (func $call-call-import (result i32)
+    (local $x i32)
+    (local.set $x
+      (global.get $glob)
+    )
+    (drop
+      (call $call-import) ;; as above, but now we call a function that calls an
+                          ;; import, so after propagation we will not optimize
+    )
+    (local.get $x)
+  )
 )
