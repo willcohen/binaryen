@@ -78,19 +78,23 @@ struct GenerateFuncEffects : public WalkerPass<PostWalker<GenerateFuncEffects>> 
         }
       });
 
-#if 0
     // Assume a non-direct call might throw.
     analyzer.propagateBack(
-      [](const Info& info) { return info.canThrow; },
-      [](const Info& info) { return true; },
-      [](Info& info, Function* reason) { info.canThrow = true; },
-      analyzer.NonDirectCallsHaveProperty);
-#endif
+      [&](const Info& funcInfo, Info& callerInfo) {
+        if (callerInfo.effects == anything) {
+          // This is already the worst case, stop.
+          return false;
+        }
 
-    // TODO: Propagate effects through direct calls. Without that we only look
-    //       one call deep, basically.
-    //       The propagation can use the identity of |anything| for convenience
-    //       (to indicate "we've failed to learn anything here").
+        auto old = *callerInfo.effects;
+        callerInfo.effects->mergeIn(*funcInfo.effects);
+        return (*callerInfo.effects) != old;
+      },
+      [&](Info& info) {
+        // Assume the worst, as there are indirect calls here or something else
+        // that the analzer cannot analyze.
+        info.effects = anything;
+      });
 
     // TODO: share the Info object between functions where possible to save
     //       memory, like we do with |anything| already. E.g. if a function's

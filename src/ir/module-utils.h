@@ -454,6 +454,46 @@ template<typename T> struct CallGraphPropertyAnalysis {
       }
     }
   }
+
+  // Propagate from functions to those that call them, while changes still
+  // happen. This is similar to the previous function, but handles not only a
+  // boolean property but something more general.
+  //
+  // propagateTo(funcInfo, callerInfo) - A function that should propagate
+  //                                     relevant info a called function to its
+  //                                     caller, and return true if new things
+  //                                     propagated.
+  // assumeWorst(info) - Called when we see a non-direct call of some form,
+  //                     which means we must assume the worst: we can't analyze
+  //                     where this will go. TODO: if the table does no escape
+  //                     we could do better here
+  void propagateBack(std::function<bool(const T&, T&)> propagateTo,
+                     std::function<void(T&)> assumeWorst) {
+    // The work queue contains items we just learned about changes to.
+    UniqueDeferredQueue<Function*> work;
+    for (auto& func : wasm.functions) {
+      work.push(func.get());
+      auto& info = map[func.get()];
+      if (info.hasNonDirectCall) {
+        assumeWorst(info);
+      }
+    }
+    while (!work.empty()) {
+      auto* func = work.pop();
+      // Propagate from func to things that call it.
+      auto& funcInfo = map[func];
+      for (auto* caller : map[func].calledBy) {
+        auto& callerInfo = map[caller];
+        if (!callerInfo.hasNonDirectCall && funcInfo.hasNonDirectCall) {
+          // The caller can also do a non-direct call. Mark it as such.
+          assumeWorst(callerInfo);
+          work.push(caller);
+        } else if (propagateTo(funcInfo, callerInfo)) {
+          work.push(caller);
+        }
+      }
+    }
+  }
 };
 
 // Helper function for collecting all the types that are declared in a module,
