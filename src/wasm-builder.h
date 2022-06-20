@@ -94,7 +94,7 @@ public:
   }
 
   static std::unique_ptr<Memory>makeMemory(Name name = Name::fromInt(0)) {
-    auto memory = std::make_unique<Memory();
+    auto memory = std::make_unique<Memory>();
     memory->name = name;
     return memory;
   }
@@ -625,7 +625,7 @@ public:
   }
   MemorySize* makeMemorySize() {
     auto* ret = wasm.allocator.alloc<MemorySize>();
-    if (wasm.memories->is64()) {
+    if (wasm.memories[0]->is64()) {
       ret->make64();
     }
     ret->finalize();
