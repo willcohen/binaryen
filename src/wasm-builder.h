@@ -588,7 +588,7 @@ public:
     return ret;
   }
   Const* makeConstPtr(uint64_t val) {
-    return makeConst(Literal::makeFromInt64(val, wasm.memory.indexType));
+    return makeConst(Literal::makeFromInt64(val, wasm.memories[0]->indexType));
   }
   Binary* makeBinary(BinaryOp op, Expression* left, Expression* right) {
     auto* ret = wasm.allocator.alloc<Binary>();
@@ -625,7 +625,7 @@ public:
   }
   MemorySize* makeMemorySize() {
     auto* ret = wasm.allocator.alloc<MemorySize>();
-    if (wasm.memory.is64()) {
+    if (wasm.memories->is64()) {
       ret->make64();
     }
     ret->finalize();
@@ -633,7 +633,7 @@ public:
   }
   MemoryGrow* makeMemoryGrow(Expression* delta) {
     auto* ret = wasm.allocator.alloc<MemoryGrow>();
-    if (wasm.memory.is64()) {
+    if (wasm.memories[0]->is64()) {
       ret->make64();
     }
     ret->delta = delta;
