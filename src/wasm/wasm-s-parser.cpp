@@ -3086,7 +3086,7 @@ Index SExpressionWasmBuilder::parseMemoryLimits(Element& s, Index i) {
 }
 
 void SExpressionWasmBuilder::parseMemory(Element& s, bool preParseImport) {
-  if (wasm.memories.size() == 1) {
+  if (!wasm.memories.empty()) {
     throw ParseException("too many memories", s.line, s.col);
   }
   auto memory = make_unique<Memory>();
@@ -3181,7 +3181,7 @@ void SExpressionWasmBuilder::parseMemory(Element& s, bool preParseImport) {
 }
 
 void SExpressionWasmBuilder::parseData(Element& s) {
-  if (!wasm.memories[0]) {
+  if (wasm.memories.empty()) {
     throw ParseException("data but no memory", s.line, s.col);
   }
   Index i = 1;
@@ -3279,7 +3279,7 @@ void SExpressionWasmBuilder::parseImport(Element& s) {
       kind = ExternalKind::Function;
     } else if (elementStartsWith(*s[3], MEMORY)) {
       kind = ExternalKind::Memory;
-      if (wasm.memories[0]) {
+      if (!wasm.memories.empty()) {
         throw ParseException("more than one memory", s[3]->line, s[3]->col);
       }
     } else if (elementStartsWith(*s[3], TABLE)) {
