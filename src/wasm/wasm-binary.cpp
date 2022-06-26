@@ -1776,10 +1776,6 @@ int64_t WasmBinaryBuilder::getS64LEB() {
   return ret.value;
 }
 
-uint64_t WasmBinaryBuilder::getUPtrLEB() {
-  return wasm.memories[0]->is64() ? getU64LEB() : getU32LEB();
-}
-
 bool WasmBinaryBuilder::getBasicType(int32_t code, Type& out) {
   switch (code) {
     case BinaryConsts::EncodedType::i32:
@@ -3029,6 +3025,29 @@ void WasmBinaryBuilder::processNames() {
     }
   }
 
+  for (auto& [index, refs] : memoryRefs) {
+    for (auto* ref : refs) {
+      if (auto* load = ref->dynCast<Load>()) {
+        load->memory = getMemoryName(index);
+      } else if (auto* store = ref->dynCast<Store>()) {
+        store->memory = getMemoryName(index);
+      } else if (auto* size = ref->dynCast<MemorySize>()) {
+        size->memory = getMemoryName(index);
+      } else if (auto* grow = ref->dynCast<MemoryGrow>()) {
+        grow->memory = getMemoryName(index);
+      } else if (auto* fill = ref->dynCast<MemoryFill>()) {
+        fill->memory = getMemoryName(index);
+      } else if (auto* copy = ref->dynCast<MemoryCopy>()) {
+        copy->memory = getMemoryName(index);
+      } else if (auto* init = ref->dynCast<MemoryInit>()) {
+        init->memory = getMemoryName(index);
+
+      } else {
+        WASM_UNREACHABLE("Invalid type in memory references");
+      }
+    }
+  }
+
   for (auto& [index, refs] : globalRefs) {
     for (auto* ref : refs) {
       if (auto* get = ref->dynCast<GlobalGet>()) {
@@ -3784,18 +3803,12 @@ BinaryConsts::ASTNodes WasmBinaryBuilder::readExpression(Expression*& curr) {
       break;
     case BinaryConsts::MemorySize: {
       auto size = allocator.alloc<MemorySize>();
-      if (wasm.memories[0]->is64()) {
-        size->make64();
-      }
       curr = size;
       visitMemorySize(size);
       break;
     }
     case BinaryConsts::MemoryGrow: {
       auto grow = allocator.alloc<MemoryGrow>();
-      if (wasm.memories[0]->is64()) {
-        grow->make64();
-      }
       curr = grow;
       visitMemoryGrow(grow);
       break;
@@ -4393,14 +4406,33 @@ void WasmBinaryBuilder::visitGlobalSet(GlobalSet* curr) {
   curr->finalize();
 }
 
-void WasmBinaryBuilder::readMemoryAccess(Address& alignment, Address& offset) {
+Index WasmBinaryBuilder::readMemoryAccess(Address& alignment, Address& offset) {
   auto rawAlignment = getU32LEB();
-  if (rawAlignment > 4) {
-    throwError("Alignment must be of a reasonable size");
+  bool hasMemoryIdx = false;
+  Index memoryIdx = 0;
+  // Check bit 6 in the alignment to know whether a memory index is present
+  // per https://github.com/WebAssembly/multi-memory/blob/main/proposals/multi-memory/Overview.md
+ if (rawAlignment >= 6 && (rawAlignment & (1 << (6)))) {
+    hasMemoryIdx = true;
   }
+
   alignment = Bits::pow2(rawAlignment);
-  // TODO (nashley): reinterpret the alignment as a bit field per the proposal
-  offset = getUPtrLEB();
+  offset = getU64LEB();
+  if (hasMemoryIdx) {
+    memoryIdx = getU32LEB();
+  }
+  if (memoryIdx >= memories.size()) {
+    throwError("bad memory index");
+  }
+  if (!memories[memoryIdx]->is64()) {
+    if (offset > UINT32_MAX) {
+      throwError("offset is larger than 32-bit");
+    } else {
+      offset = uint32_t(offset);
+    }
+  }
+
+  return memoryIdx;
 }
 
 bool WasmBinaryBuilder::maybeVisitLoad(Expression*& out,
@@ -4535,7 +4567,8 @@ bool WasmBinaryBuilder::maybeVisitLoad(Expression*& out,
   }
 
   curr->isAtomic = isAtomic;
-  readMemoryAccess(curr->align, curr->offset);
+  Index memoryIdx = readMemoryAccess(curr->align, curr->offset);
+  memoryRefs[memoryIdx].push_back(curr);
   curr->ptr = popNonVoidExpression();
   curr->finalize();
   out = curr;
@@ -4640,7 +4673,8 @@ bool WasmBinaryBuilder::maybeVisitStore(Expression*& out,
 
   curr->isAtomic = isAtomic;
   BYN_TRACE("zz node: Store\n");
-  readMemoryAccess(curr->align, curr->offset);
+  Index memoryIdx = readMemoryAccess(curr->align, curr->offset);
+  memoryRefs[memoryIdx].push_back(curr);
   curr->value = popNonVoidExpression();
   curr->ptr = popNonVoidExpression();
   curr->finalize();
@@ -5138,10 +5172,12 @@ bool WasmBinaryBuilder::maybeVisitMemoryInit(Expression*& out, uint32_t code) {
   curr->offset = popNonVoidExpression();
   curr->dest = popNonVoidExpression();
   curr->segment = getU32LEB();
-  if (getInt8() != 0) {
-    throwError("Unexpected nonzero memory index");
+  Index memoryIdx = getU32LEB();
+  if (memoryIdx >= memories.size()) {
+    throwError("bad memory index on memory.init");
   }
   curr->finalize();
+  memoryRefs[memoryIdx].push_back(curr);
   out = curr;
   return true;
 }
@@ -5165,10 +5201,12 @@ bool WasmBinaryBuilder::maybeVisitMemoryCopy(Expression*& out, uint32_t code) {
   curr->size = popNonVoidExpression();
   curr->source = popNonVoidExpression();
   curr->dest = popNonVoidExpression();
-  if (getInt8() != 0 || getInt8() != 0) {
-    throwError("Unexpected nonzero memory index");
+  Index memoryIdx = getU32LEB();
+  if (memoryIdx >= memories.size()) {
+    throwError("bad memory index on memory.copy");
   }
   curr->finalize();
+  memoryRefs[memoryIdx].push_back(curr);
   out = curr;
   return true;
 }
@@ -5181,10 +5219,12 @@ bool WasmBinaryBuilder::maybeVisitMemoryFill(Expression*& out, uint32_t code) {
   curr->size = popNonVoidExpression();
   curr->value = popNonVoidExpression();
   curr->dest = popNonVoidExpression();
-  if (getInt8() != 0) {
-    throwError("Unexpected nonzero memory index");
+  Index memoryIdx = getU32LEB();
+  if (memoryIdx >= memories.size()) {
+    throwError("bad memory index on memory.fill");
   }
   curr->finalize();
+  memoryRefs[memoryIdx].push_back(curr);
   out = curr;
   return true;
 }
@@ -6517,21 +6557,23 @@ void WasmBinaryBuilder::visitReturn(Return* curr) {
 
 void WasmBinaryBuilder::visitMemorySize(MemorySize* curr) {
   BYN_TRACE("zz node: MemorySize\n");
-  auto reserved = getU32LEB();
-  if (reserved != 0) {
-    throwError("Invalid reserved field on memory.size");
+  Index memoryIdx = getU32LEB();
+  if (memoryIdx >= memories.size()) {
+    throwError("bad memory index on memory.size");
   }
   curr->finalize();
+  memoryRefs[memoryIdx].push_back(curr);
 }
 
 void WasmBinaryBuilder::visitMemoryGrow(MemoryGrow* curr) {
   BYN_TRACE("zz node: MemoryGrow\n");
   curr->delta = popNonVoidExpression();
-  auto reserved = getU32LEB();
-  if (reserved != 0) {
-    throwError("Invalid reserved field on memory.grow");
+  Index memoryIdx = getU32LEB();
+  if (memoryIdx >= memories.size()) {
+    throwError("bad memory index on memory.grow");
   }
   curr->finalize();
+  memoryRefs[memoryIdx].push_back(curr);
 }
 
 void WasmBinaryBuilder::visitNop(Nop* curr) { BYN_TRACE("zz node: Nop\n"); }
