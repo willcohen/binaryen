@@ -3041,7 +3041,18 @@ void WasmBinaryBuilder::processNames() {
         copy->memory = getMemoryName(index);
       } else if (auto* init = ref->dynCast<MemoryInit>()) {
         init->memory = getMemoryName(index);
-
+      } else if (auto* rmw = ref->dynCast<AtomicRMW>()) {
+        rmw->memory = getMemoryName(index);
+      } else if (auto* cmpxchg = ref->dynCast<AtomicCmpxchg>()) {
+        cmpxchg->memory = getMemoryName(index);
+      } else if (auto* wait = ref->dynCast<AtomicWait>()) {
+        wait->memory = getMemoryName(index);
+      } else if (auto* notify = ref->dynCast<AtomicNotify>()) {
+        notify->memory = getMemoryName(index);
+      } else if (auto* simdLoad = ref->dynCast<SIMDLoad>()) {
+        simdLoad->memory = getMemoryName(index);
+      } else if (auto* simdLane = ref->dynCast<SIMDLoadStoreLane>()) {
+        simdLane->memory = getMemoryName(index);
       } else {
         WASM_UNREACHABLE("Invalid type in memory references");
       }
@@ -4414,33 +4425,37 @@ void WasmBinaryBuilder::visitGlobalSet(GlobalSet* curr) {
   curr->finalize();
 }
 
-Index WasmBinaryBuilder::readMemoryAccess(Address& alignment, Address& offset) {
+Index WasmBinaryBuilder::readMemoryAlignment(Address& alignment, Address& offset) {
   auto rawAlignment = getU32LEB();
-  bool hasMemoryIdx = false;
-  Index memoryIdx = 0;
+  if (rawAlignment > 8) {
+    throwError("Alignment must be of a reasonable size");
+  }
+
+  bool hasMemIdx = false;
+  Index memIdx = 0;
   // Check bit 6 in the alignment to know whether a memory index is present
   // per https://github.com/WebAssembly/multi-memory/blob/main/proposals/multi-memory/Overview.md
  if (rawAlignment >= 6 && (rawAlignment & (1 << (6)))) {
-    hasMemoryIdx = true;
+    hasMemIdx = true;
   }
 
   alignment = Bits::pow2(rawAlignment);
-  offset = getU64LEB();
-  if (hasMemoryIdx) {
-    memoryIdx = getU32LEB();
+  if (hasMemIdx) {
+    memIdx = getU32LEB();
   }
-  if (memoryIdx >= memories.size()) {
-    throwError("bad memory index");
+  Memory* memory = nullptr;
+  auto numMemoryImports = memoryImports.size();
+  if (memIdx < numMemoryImports) {
+    memory = memoryImports[memIdx];
+  } else if (memIdx - numMemoryImports < memories.size()) {
+    memory = memories[memIdx - numMemoryImports].get();
   }
-  if (!memories[memoryIdx]->is64()) {
-    if (offset > UINT32_MAX) {
-      throwError("offset is larger than 32-bit");
-    } else {
-      offset = uint32_t(offset);
-    }
+  if (!memory) {
+    throwError("Memory index out of range while reading memory alignment.");
   }
+  offset = memory->indexType == Type::i32 ? getU32LEB() : getU64LEB();
 
-  return memoryIdx;
+  return memIdx;
 }
 
 bool WasmBinaryBuilder::maybeVisitLoad(Expression*& out,
@@ -4575,8 +4590,8 @@ bool WasmBinaryBuilder::maybeVisitLoad(Expression*& out,
   }
 
   curr->isAtomic = isAtomic;
-  Index memoryIdx = readMemoryAccess(curr->align, curr->offset);
-  memoryRefs[memoryIdx].push_back(curr);
+  Index memIdx = readMemoryAlignment(curr->align, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   curr->ptr = popNonVoidExpression();
   curr->finalize();
   out = curr;
@@ -4681,8 +4696,8 @@ bool WasmBinaryBuilder::maybeVisitStore(Expression*& out,
 
   curr->isAtomic = isAtomic;
   BYN_TRACE("zz node: Store\n");
-  Index memoryIdx = readMemoryAccess(curr->align, curr->offset);
-  memoryRefs[memoryIdx].push_back(curr);
+  Index memIdx = readMemoryAlignment(curr->align, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   curr->value = popNonVoidExpression();
   curr->ptr = popNonVoidExpression();
   curr->finalize();
@@ -4742,7 +4757,8 @@ bool WasmBinaryBuilder::maybeVisitAtomicRMW(Expression*& out, uint8_t code) {
 
   BYN_TRACE("zz node: AtomicRMW\n");
   Address readAlign;
-  readMemoryAccess(readAlign, curr->offset);
+  Index memIdx = readMemoryAlignment(readAlign, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   if (readAlign != curr->bytes) {
     throwError("Align of AtomicRMW must match size");
   }
@@ -4794,7 +4810,8 @@ bool WasmBinaryBuilder::maybeVisitAtomicCmpxchg(Expression*& out,
 
   BYN_TRACE("zz node: AtomicCmpxchg\n");
   Address readAlign;
-  readMemoryAccess(readAlign, curr->offset);
+  Index memIdx = readMemoryAlignment(readAlign, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   if (readAlign != curr->bytes) {
     throwError("Align of AtomicCpxchg must match size");
   }
@@ -4829,7 +4846,8 @@ bool WasmBinaryBuilder::maybeVisitAtomicWait(Expression*& out, uint8_t code) {
   curr->expected = popNonVoidExpression();
   curr->ptr = popNonVoidExpression();
   Address readAlign;
-  readMemoryAccess(readAlign, curr->offset);
+  Index memIdx = readMemoryAlignment(readAlign, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   if (readAlign != curr->expectedType.getByteSize()) {
     throwError("Align of AtomicWait must match size");
   }
@@ -4849,7 +4867,8 @@ bool WasmBinaryBuilder::maybeVisitAtomicNotify(Expression*& out, uint8_t code) {
   curr->notifyCount = popNonVoidExpression();
   curr->ptr = popNonVoidExpression();
   Address readAlign;
-  readMemoryAccess(readAlign, curr->offset);
+  Index memIdx = readMemoryAlignment(readAlign, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   if (readAlign != curr->type.getByteSize()) {
     throwError("Align of AtomicNotify must match size");
   }
@@ -5180,12 +5199,12 @@ bool WasmBinaryBuilder::maybeVisitMemoryInit(Expression*& out, uint32_t code) {
   curr->offset = popNonVoidExpression();
   curr->dest = popNonVoidExpression();
   curr->segment = getU32LEB();
-  Index memoryIdx = getU32LEB();
-  if (memoryIdx >= memories.size()) {
+  Index memIdx = getU32LEB();
+  if (memIdx >= memories.size()) {
     throwError("bad memory index on memory.init");
   }
   curr->finalize();
-  memoryRefs[memoryIdx].push_back(curr);
+  memoryRefs[memIdx].push_back(curr);
   out = curr;
   return true;
 }
@@ -5209,12 +5228,12 @@ bool WasmBinaryBuilder::maybeVisitMemoryCopy(Expression*& out, uint32_t code) {
   curr->size = popNonVoidExpression();
   curr->source = popNonVoidExpression();
   curr->dest = popNonVoidExpression();
-  Index memoryIdx = getU32LEB();
-  if (memoryIdx >= memories.size()) {
+  Index memIdx = getU32LEB();
+  if (memIdx >= memories.size()) {
     throwError("bad memory index on memory.copy");
   }
   curr->finalize();
-  memoryRefs[memoryIdx].push_back(curr);
+  memoryRefs[memIdx].push_back(curr);
   out = curr;
   return true;
 }
@@ -5227,12 +5246,12 @@ bool WasmBinaryBuilder::maybeVisitMemoryFill(Expression*& out, uint32_t code) {
   curr->size = popNonVoidExpression();
   curr->value = popNonVoidExpression();
   curr->dest = popNonVoidExpression();
-  Index memoryIdx = getU32LEB();
-  if (memoryIdx >= memories.size()) {
+  Index memIdx = getU32LEB();
+  if (memIdx >= memories.size()) {
     throwError("bad memory index on memory.fill");
   }
   curr->finalize();
-  memoryRefs[memoryIdx].push_back(curr);
+  memoryRefs[memIdx].push_back(curr);
   out = curr;
   return true;
 }
@@ -6176,7 +6195,8 @@ bool WasmBinaryBuilder::maybeVisitSIMDStore(Expression*& out, uint32_t code) {
   auto* curr = allocator.alloc<Store>();
   curr->bytes = 16;
   curr->valueType = Type::v128;
-  readMemoryAccess(curr->align, curr->offset);
+  Index memIdx = readMemoryAlignment(curr->align, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   curr->isAtomic = false;
   curr->value = popNonVoidExpression();
   curr->ptr = popNonVoidExpression();
@@ -6415,7 +6435,8 @@ bool WasmBinaryBuilder::maybeVisitSIMDLoad(Expression*& out, uint32_t code) {
     auto* curr = allocator.alloc<Load>();
     curr->type = Type::v128;
     curr->bytes = 16;
-    readMemoryAccess(curr->align, curr->offset);
+    Index memIdx = readMemoryAlignment(curr->align, curr->offset);
+    memoryRefs[memIdx].push_back(curr);
     curr->isAtomic = false;
     curr->ptr = popNonVoidExpression();
     curr->finalize();
@@ -6475,7 +6496,8 @@ bool WasmBinaryBuilder::maybeVisitSIMDLoad(Expression*& out, uint32_t code) {
     default:
       return false;
   }
-  readMemoryAccess(curr->align, curr->offset);
+  Index memIdx = readMemoryAlignment(curr->align, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   curr->ptr = popNonVoidExpression();
   curr->finalize();
   out = curr;
@@ -6524,7 +6546,8 @@ bool WasmBinaryBuilder::maybeVisitSIMDLoadStoreLane(Expression*& out,
   }
   auto* curr = allocator.alloc<SIMDLoadStoreLane>();
   curr->op = op;
-  readMemoryAccess(curr->align, curr->offset);
+  Index memIdx = readMemoryAlignment(curr->align, curr->offset);
+  memoryRefs[memIdx].push_back(curr);
   curr->index = getLaneIndex(lanes);
   curr->vec = popNonVoidExpression();
   curr->ptr = popNonVoidExpression();
@@ -6565,23 +6588,23 @@ void WasmBinaryBuilder::visitReturn(Return* curr) {
 
 void WasmBinaryBuilder::visitMemorySize(MemorySize* curr) {
   BYN_TRACE("zz node: MemorySize\n");
-  Index memoryIdx = getU32LEB();
-  if (memoryIdx >= memories.size()) {
+  Index memIdx = getU32LEB();
+  if (memIdx >= memories.size()) {
     throwError("bad memory index on memory.size");
   }
   curr->finalize();
-  memoryRefs[memoryIdx].push_back(curr);
+  memoryRefs[memIdx].push_back(curr);
 }
 
 void WasmBinaryBuilder::visitMemoryGrow(MemoryGrow* curr) {
   BYN_TRACE("zz node: MemoryGrow\n");
   curr->delta = popNonVoidExpression();
-  Index memoryIdx = getU32LEB();
-  if (memoryIdx >= memories.size()) {
+  Index memIdx = getU32LEB();
+  if (memIdx >= memories.size()) {
     throwError("bad memory index on memory.grow");
   }
   curr->finalize();
-  memoryRefs[memoryIdx].push_back(curr);
+  memoryRefs[memIdx].push_back(curr);
 }
 
 void WasmBinaryBuilder::visitNop(Nop* curr) { BYN_TRACE("zz node: Nop\n"); }
