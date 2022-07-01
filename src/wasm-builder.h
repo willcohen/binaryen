@@ -106,7 +106,7 @@ public:
     return seg;
   }
 
-  static std::unique_ptr<Memory>makeMemory(Name name = Name::fromInt(0),
+  static std::unique_ptr<Memory>makeMemory(Name name,
                                            Address initial = 0,
                                            Address max = Memory::kMaxSize32,
                                            bool shared = false,
@@ -122,7 +122,7 @@ public:
 
   static std::unique_ptr<DataSegment>
   makeDataSegment(Name name = "",
-                  Name memory = Name::fromInt(0),
+                  Name memory = "",
                   bool isPassive = false,
                   Expression* offset = nullptr,
                   const char* init = "",
@@ -370,7 +370,7 @@ public:
                  unsigned align,
                  Expression* ptr,
                  Type type,
-                 Name memory = Name::fromInt(0)) {
+                 Name memory) {
     auto* ret = wasm.allocator.alloc<Load>();
     ret->isAtomic = false;
     ret->bytes = bytes;
@@ -393,7 +393,7 @@ public:
                              Expression* timeout,
                              Type expectedType,
                              Address offset,
-                             Name memory = Name::fromInt(0)) {
+                             Name memory) {
     auto* wait = wasm.allocator.alloc<AtomicWait>();
     wait->offset = offset;
     wait->ptr = ptr;
@@ -405,7 +405,7 @@ public:
     return wait;
   }
   AtomicNotify*
-  makeAtomicNotify(Expression* ptr, Expression* notifyCount, Address offset, Name memory = Name::fromInt(0)) {
+  makeAtomicNotify(Expression* ptr, Expression* notifyCount, Address offset, Name memory) {
     auto* notify = wasm.allocator.alloc<AtomicNotify>();
     notify->offset = offset;
     notify->ptr = ptr;
@@ -421,7 +421,7 @@ public:
                    Expression* ptr,
                    Expression* value,
                    Type type,
-                   Name memory = Name::fromInt(0)) {
+                   Name memory) {
     auto* ret = wasm.allocator.alloc<Store>();
     ret->isAtomic = false;
     ret->bytes = bytes;
@@ -440,7 +440,7 @@ public:
                          Expression* ptr,
                          Expression* value,
                          Type type,
-                         Name memory = Name::fromInt(0)) {
+                         Name memory) {
     Store* store = makeStore(bytes, offset, bytes, ptr, value, type, memory);
     store->isAtomic = true;
     return store;
@@ -451,7 +451,7 @@ public:
                            Expression* ptr,
                            Expression* value,
                            Type type,
-                           Name memory = Name::fromInt(0)) {
+                           Name memory) {
     auto* ret = wasm.allocator.alloc<AtomicRMW>();
     ret->op = op;
     ret->bytes = bytes;
@@ -469,7 +469,7 @@ public:
                                    Expression* expected,
                                    Expression* replacement,
                                    Type type,
-                                   Name memory = Name::fromInt(0)) {
+                                   Name memory) {
     auto* ret = wasm.allocator.alloc<AtomicCmpxchg>();
     ret->bytes = bytes;
     ret->offset = offset;
@@ -533,7 +533,7 @@ public:
     return ret;
   }
   SIMDLoad*
-  makeSIMDLoad(SIMDLoadOp op, Address offset, Address align, Expression* ptr) {
+  makeSIMDLoad(SIMDLoadOp op, Address offset, Address align, Expression* ptr, Name memory) {
     auto* ret = wasm.allocator.alloc<SIMDLoad>();
     ret->op = op;
     ret->offset = offset;
@@ -548,7 +548,7 @@ public:
                                            uint8_t index,
                                            Expression* ptr,
                                            Expression* vec,
-                                           Name memory = Name::fromInt(0)) {
+                                           Name memory) {
     auto* ret = wasm.allocator.alloc<SIMDLoadStoreLane>();
     ret->op = op;
     ret->offset = offset;
@@ -564,7 +564,7 @@ public:
                              Expression* dest,
                              Expression* offset,
                              Expression* size,
-                             Name memory = Name::fromInt(0)) {
+                             Name memory) {
     auto* ret = wasm.allocator.alloc<MemoryInit>();
     ret->segment = segment;
     ret->dest = dest;
@@ -581,7 +581,7 @@ public:
     return ret;
   }
   MemoryCopy*
-  makeMemoryCopy(Expression* dest, Expression* source, Expression* size, Name memory = Name::fromInt(0)) {
+  makeMemoryCopy(Expression* dest, Expression* source, Expression* size, Name memory) {
     auto* ret = wasm.allocator.alloc<MemoryCopy>();
     ret->dest = dest;
     ret->source = source;
@@ -591,7 +591,7 @@ public:
     return ret;
   }
   MemoryFill*
-  makeMemoryFill(Expression* dest, Expression* value, Expression* size, Name memory = Name::fromInt(0)) {
+  makeMemoryFill(Expression* dest, Expression* value, Expression* size, Name memory) {
     auto* ret = wasm.allocator.alloc<MemoryFill>();
     ret->dest = dest;
     ret->value = value;
@@ -651,7 +651,7 @@ public:
     ret->value = value;
     return ret;
   }
-  MemorySize* makeMemorySize(Name memory = Name::fromInt(0)) {
+  MemorySize* makeMemorySize(Name memory) {
     auto* ret = wasm.allocator.alloc<MemorySize>();
     auto mem = wasm.getMemory(memory);
     if (mem->is64()) {
@@ -661,7 +661,7 @@ public:
     ret->finalize();
     return ret;
   }
-  MemoryGrow* makeMemoryGrow(Expression* delta, Name memory = Name::fromInt(0)) {
+  MemoryGrow* makeMemoryGrow(Expression* delta, Name memory) {
     auto* ret = wasm.allocator.alloc<MemoryGrow>();
     auto mem = wasm.getMemory(memory);
     if (mem->is64()) {
