@@ -503,6 +503,14 @@ Name SExpressionWasmBuilder::getTableName(Element& s) {
   }
 }
 
+Memory SExpressionWasmBuilder::getMemoryAtIdx(Index idx) {
+  if (idx < wasm.memories.size()) {
+    auto& memory = wasm.memories[idx];
+    return *memory;
+  }
+  Fatal() << "Tried to access memories at idx > size";
+}
+
 Name SExpressionWasmBuilder::getMemoryName(Element& s) {
   if (s.dollared()) {
     return s.str();
@@ -1432,7 +1440,7 @@ Expression* SExpressionWasmBuilder::makeMemorySize(Element& s) {
   if (s.size() > 1) {
     memIdx = atoi(s[i]->c_str());
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   if (mem.is64()) {
     ret->make64();
@@ -1449,7 +1457,7 @@ Expression* SExpressionWasmBuilder::makeMemoryGrow(Element& s) {
     std::cout << "in new init code\n";
     memIdx = atoi(s[i++]->c_str());
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   if (mem.is64()) {
     ret->make64();
@@ -1987,7 +1995,7 @@ SExpressionWasmBuilder::makeLoad(Element& s, Type type, bool isAtomic) {
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   i = parseMemAttributes(i, s, ret->offset, ret->align, ret->bytes);
   ret->ptr = parseExpression(s[i]);
@@ -2009,7 +2017,7 @@ SExpressionWasmBuilder::makeStore(Element& s, Type type, bool isAtomic) {
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   i = parseMemAttributes(i, s, ret->offset, ret->align, ret->bytes);
   ret->ptr = parseExpression(s[i]);
@@ -2062,7 +2070,7 @@ Expression* SExpressionWasmBuilder::makeAtomicRMW(Element& s,
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   Address align;
   i = parseMemAttributes(i, s, ret->offset, align, ret->bytes);
@@ -2090,7 +2098,7 @@ Expression* SExpressionWasmBuilder::makeAtomicCmpxchg(Element& s,
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   i = parseMemAttributes(i, s, ret->offset, align, ret->bytes);
   if (align != ret->bytes) {
@@ -2124,7 +2132,7 @@ Expression* SExpressionWasmBuilder::makeAtomicWait(Element& s, Type type) {
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   i = parseMemAttributes(i, s, ret->offset, align, expectedAlign);
   if (align != expectedAlign) {
@@ -2148,7 +2156,7 @@ Expression* SExpressionWasmBuilder::makeAtomicNotify(Element& s) {
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   Address align;
   i = parseMemAttributes(i, s, ret->offset, align, 4);
@@ -2267,7 +2275,7 @@ Expression* SExpressionWasmBuilder::makeSIMDLoad(Element& s, SIMDLoadOp op) {
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   i = parseMemAttributes(i, s, ret->offset, ret->align, defaultAlign);
   ret->ptr = parseExpression(s[i]);
@@ -2313,7 +2321,7 @@ SExpressionWasmBuilder::makeSIMDLoadStoreLane(Element& s,
     memIdx = atoi(s[i]->c_str());
     i++;
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   i = parseMemAttributes(i, s, ret->offset, ret->align, defaultAlign);
   ret->index = parseLaneIndex(s[i++], lanes);
@@ -2331,7 +2339,7 @@ Expression* SExpressionWasmBuilder::makeMemoryInit(Element& s) {
     std::cout << "in new init code\n";
     memIdx = atoi(s[i++]->c_str());
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   ret->segment = atoi(s[i++]->str().c_str());
   ret->dest = parseExpression(s[i++]);
@@ -2356,7 +2364,7 @@ Expression* SExpressionWasmBuilder::makeMemoryCopy(Element& s) {
     std::cout << "in new copy code\n";
     memIdx = atoi(s[i++]->c_str());
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   ret->dest = parseExpression(s[i++]);
   ret->source = parseExpression(s[i++]);
@@ -2373,7 +2381,7 @@ Expression* SExpressionWasmBuilder::makeMemoryFill(Element& s) {
     std::cout << "in new fill code\n";
     memIdx = atoi(s[i++]->c_str());
   }
-  auto mem = wasm.getMemoryAtIdx(memIdx);
+  auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
   ret->dest = parseExpression(s[i++]);
   ret->value = parseExpression(s[i++]);
@@ -3342,6 +3350,9 @@ void SExpressionWasmBuilder::parseData(Element& s) {
       offset = parseExpression(inner[1]);
     } else {
       offset = parseExpression(inner);
+    }
+    if (memory.isNull()) {
+      memory = getMemoryAtIdx(0).name;
     }
     isPassive = false;
   }
