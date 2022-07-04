@@ -1454,7 +1454,6 @@ Expression* SExpressionWasmBuilder::makeMemoryGrow(Element& s) {
   Index i = 1;
   Index memIdx = 0;
   if (s.size() > 2) {
-    std::cout << "in new init code\n";
     memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
@@ -2336,7 +2335,6 @@ Expression* SExpressionWasmBuilder::makeMemoryInit(Element& s) {
   Index i = 1;
   Index memIdx = 0;
   if (s.size() > 5) {
-    std::cout << "in new init code\n";
     memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
@@ -2361,7 +2359,6 @@ Expression* SExpressionWasmBuilder::makeMemoryCopy(Element& s) {
   Index i = 1;
   Index memIdx = 0;
   if (s.size() > 4) {
-    std::cout << "in new copy code\n";
     memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
@@ -2378,7 +2375,6 @@ Expression* SExpressionWasmBuilder::makeMemoryFill(Element& s) {
   Index i = 1;
   Index memIdx = 0;
   if (s.size() > 4) {
-    std::cout << "in new fill code\n";
     memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
@@ -3216,7 +3212,7 @@ Index SExpressionWasmBuilder::parseMemoryLimits(Element& s, Index i, std::unique
   } else {
     auto maxElem = s[i++];
     memory->max = getAddress(maxElem);
-    if (memory->is64() && memory->max > Memory::kMaxSize32) {
+    if (!memory->is64() && memory->max > Memory::kMaxSize32) {
       throw ParseException(
         "total memory must be <= 4GB", maxElem->line, maxElem->col);
     }
