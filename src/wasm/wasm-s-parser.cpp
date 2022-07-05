@@ -1989,10 +1989,9 @@ SExpressionWasmBuilder::makeLoad(Element& s, Type type, bool isAtomic) {
   ret->signed_ = extra[0] && extra[1] == 's';
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this s[1] isn't a list of instructions or  mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 2 && !s.isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2011,10 +2010,9 @@ SExpressionWasmBuilder::makeStore(Element& s, Type type, bool isAtomic) {
   ret->bytes = parseMemBytes(extra, type.getByteSize());
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 3 && !s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2064,10 +2062,9 @@ Expression* SExpressionWasmBuilder::makeAtomicRMW(Element& s,
   }
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 3 && !s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2092,10 +2089,9 @@ Expression* SExpressionWasmBuilder::makeAtomicCmpxchg(Element& s,
   Index i = 1;
   Address align;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 4 && !s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2126,10 +2122,9 @@ Expression* SExpressionWasmBuilder::makeAtomicWait(Element& s, Type type) {
   }
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 4 && !s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2150,10 +2145,9 @@ Expression* SExpressionWasmBuilder::makeAtomicNotify(Element& s) {
   ret->type = Type::i32;
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 3 && !s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2269,10 +2263,9 @@ Expression* SExpressionWasmBuilder::makeSIMDLoad(Element& s, SIMDLoadOp op) {
   }
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 2 && !s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+    memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
@@ -2315,10 +2308,9 @@ SExpressionWasmBuilder::makeSIMDLoadStoreLane(Element& s,
   }
   Index i = 1;
   Index memIdx = 0;
-  // Check to make sure this str isn't the mem attributes
-  if (!s[i]->isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
-    memIdx = atoi(s[i]->c_str());
-    i++;
+  // Check to make sure there are more than the default args & this str isn't the mem attributes
+  if (s.size() > 4 && !s.isList() && strncmp(s[i]->c_str(), "align", 5) != 0 && strncmp(s[i]->c_str(), "offset", 6) != 0) {
+      memIdx = atoi(s[i++]->c_str());
   }
   auto mem = getMemoryAtIdx(memIdx);
   ret->memory = mem.name;
