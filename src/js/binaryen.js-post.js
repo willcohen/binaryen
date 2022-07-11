@@ -2485,7 +2485,7 @@ function wrapModule(module, self = {}) {
       for (let i = 0; i < segmentsLen; i++) {
         const { data, offset, passive } = segments[i];
         segmentData[i] = stackAlloc(data.length);
-        HEAP8.set(segmentData[i], data);
+        HEAP8.set(data, segmentData[i]);
         segmentDataLen[i] = data.length;
         segmentPassive[i] = passive;
         segmentOffset[i] = offset;
