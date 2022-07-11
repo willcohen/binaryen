@@ -3325,7 +3325,7 @@ Object.defineProperty(Module, 'readBinary', { writable: true });
 
 Module['readBinary'] = function(data) {
   const buffer = _malloc(data.length);
-  HEAP8.set(buffer, data);
+  HEAP8.set(data, buffer);
   const ptr = Module['_BinaryenModuleRead'](buffer, data.length);
   _free(buffer);
   return wrapModule(ptr);
