@@ -2390,11 +2390,6 @@ public:
           return Literal(load64u(addr)).castToF64();
         case Type::v128:
           return Literal(load128(addr).data());
-        case Type::funcref:
-        case Type::anyref:
-        case Type::eqref:
-        case Type::i31ref:
-        case Type::dataref:
         case Type::none:
         case Type::unreachable:
           WASM_UNREACHABLE("unexpected type");
@@ -2448,11 +2443,6 @@ public:
         case Type::v128:
           store128(addr, value.getv128());
           break;
-        case Type::funcref:
-        case Type::anyref:
-        case Type::eqref:
-        case Type::i31ref:
-        case Type::dataref:
         case Type::none:
         case Type::unreachable:
           WASM_UNREACHABLE("unexpected type");
